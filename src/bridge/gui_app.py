@@ -114,33 +114,41 @@ class SynthDashboard(QMainWindow):
         modulation_group = QGroupBox("SVF Filter, Drive & LFO Modulation Matrix")
         mod_layout = QGridLayout()
         
-        mod_layout.addWidget(QLabel("Cutoff (Hz):"), 0, 0)
+        mod_layout.addWidget(QLabel("Filter Topology Mode:"), 0, 0)
+        self.filter_mode_select = QComboBox()
+        self.filter_mode_select.addItems(["Low-Pass (LPF)", "High-Pass (HPF)", "Band-Pass (BPF)"])
+        self.filter_mode_select.setCurrentIndex(0)
+        self.filter_mode_select.currentIndexChanged.connect(self.on_filter_parameters_altered)
+        mod_layout.addWidget(self.filter_mode_select, 0, 1)
+        
+        mod_layout.addWidget(QLabel("Cutoff (Hz):"), 0, 2)
         self.cutoff_slider = QSlider(Qt.Horizontal)
         self.cutoff_slider.setRange(20, 12000)
         self.cutoff_slider.setValue(2000)
         self.cutoff_slider.valueChanged.connect(self.on_filter_parameters_altered)
-        mod_layout.addWidget(self.cutoff_slider, 0, 1)
+        mod_layout.addWidget(self.cutoff_slider, 0, 3)
 
-        mod_layout.addWidget(QLabel("Waveshaper Drive:"), 0, 2)
+        mod_layout.addWidget(QLabel("Waveshaper Drive:"), 1, 0)
         self.drive_slider = QSlider(Qt.Horizontal)
         self.drive_slider.setRange(0, 100)
         self.drive_slider.setValue(0)
         self.drive_slider.valueChanged.connect(self.on_distortion_drive_altered)
-        mod_layout.addWidget(self.drive_slider, 0, 3)
+        mod_layout.addWidget(self.drive_slider, 1, 1)
         
-        mod_layout.addWidget(QLabel("LFO Rate (Hz):"), 1, 0)
+        mod_layout.addWidget(QLabel("LFO Rate (Hz):"), 1, 2)
         self.lfo_rate = QSlider(Qt.Horizontal)
         self.lfo_rate.setRange(1, 100)
         self.lfo_rate.setValue(20)
         self.lfo_rate.valueChanged.connect(self.on_lfo_parameters_altered)
-        mod_layout.addWidget(self.lfo_rate, 1, 1)
+        mod_layout.addWidget(self.lfo_rate, 1, 3)
         
-        mod_layout.addWidget(QLabel("LFO Depth (%):"), 1, 2)
+        mod_layout.addWidget(QLabel("LFO Depth (%):"), 2, 0)
         self.lfo_depth = QSlider(Qt.Horizontal)
         self.lfo_depth.setRange(0, 100)
         self.lfo_depth.setValue(0)
         self.lfo_depth.valueChanged.connect(self.on_lfo_parameters_altered)
-        mod_layout.addWidget(self.lfo_depth, 1, 3)
+        mod_layout.addWidget(self.lfo_depth, 2, 1)
+        
         modulation_group.setLayout(mod_layout)
         top_strip.addWidget(modulation_group)
 
@@ -336,7 +344,9 @@ class SynthDashboard(QMainWindow):
 
     def on_filter_parameters_altered(self):
         cutoff = float(self.cutoff_slider.value())
-        self.orchestrator.configure_filter(0, cutoff, 0.707)
+        selected_mode_idx = self.filter_mode_select.currentIndex()
+        # Explicitly transmit selected topology index [0=LP, 1=HP, 2=BP] to C++
+        self.orchestrator.configure_filter(selected_mode_idx, cutoff, 0.707)
 
     def on_lfo_parameters_altered(self):
         rate = self.lfo_rate.value() / 10.0

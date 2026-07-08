@@ -102,9 +102,21 @@ double GranularEngine::renderNextSample() {
         // Stochastic windowing pass: Hann formula configuration prevents clicks at audio fragment boundaries
         double progress = g.currentSample / static_cast<double>(g.totalSamples);
         constexpr double continuousPi = 3.14159265358979323846;
-        double hannWindowValue = 0.5 * (1.0 - std::cos(2.0 * continuousPi * progress));
+        
+        double appliedGrainWindow = 0.0;
+        
+        // Dynamic switching threshold maps clean choices on the fly
+        if (g.startSample % 2 == 0) {
+            // Standard Hann window shape profile configuration loop
+            appliedGrainWindow = 0.5 * (1.0 - std::cos(2.0 * continuousPi * progress));
+        } else {
+            // Stochastic Gaussian curve distribution layout formula: exp(-0.5 * ((x - mean) / std)^2)
+            double centeredMean = progress - 0.5;
+            double standardDeviationSigma = 0.18; // Yields elegant, smooth attenuation slope lines
+            appliedGrainWindow = std::exp(-0.5 * std::pow(centeredMean / standardDeviationSigma, 2.0));
+        }
 
-        output += interpolatedVal * hannWindowValue;
+        output += interpolatedVal * appliedGrainWindow;
         renderedCount++;
 
         // Advance age step using the dynamic scale modifier

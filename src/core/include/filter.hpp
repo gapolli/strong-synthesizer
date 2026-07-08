@@ -4,41 +4,36 @@
 class StateVariableFilter {
 public:
     enum class FilterMode {
-        LOW_PASS,
-        BAND_PASS,
-        HIGH_PASS
+        LOW_PASS = 0,
+        HIGH_PASS = 1,
+        BAND_PASS = 2
     };
 
+private:
+    double sampleRate_;
+    FilterMode mode_;
+    double cutoff_;
+    double resonance_;
+    
+    double f_;
+    double q_;
+    double lowState_;
+    double bandState_;
+    double driveGain_;
+
+    double shapeDistortion(double sample) const;
+
+public:
     StateVariableFilter();
     ~StateVariableFilter();
 
     void setSampleRate(double sampleRate);
     void setParameters(double cutoffHz, double resonance);
     void setMode(FilterMode mode);
-    
-    // Waveshaper control parameters
     void setDrive(double driveAmount);
-
-    double process(double input);
     void reset();
-
-private:
-    double sampleRate_;
-    FilterMode mode_;
     
-    double cutoff_;
-    double resonance_;
-    
-    double f_; 
-    double q_; 
-    
-    double lowState_;
-    double bandState_;
-
-    // Saturated waveshaper state parameters
-    double driveGain_;
-
-    double shapeDistortion(double sample) const;
+    double process(double input);
 };
 
 #endif
