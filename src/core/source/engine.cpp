@@ -102,9 +102,10 @@ void Engine::configureGranular(double position, double durationMs, int density) 
     granularEngine_.setParameters(position, durationMs, density);
 }
 
-void Engine::configureLfo(double frequencyHz, double depthPercent) {
+void Engine::configureLfo(int waveformIdx, double frequencyHz, double depthPercent) {
     lfoIncrement_ = frequencyHz / sampleRate_;
     lfoDepth_ = std::clamp(depthPercent, 0.0, 1.0);
+    lfoWaveform_ = static_cast<LFOWaveform>(std::clamp(waveformIdx, 0, 3));
 }
 
 void Engine::updateFmEnvelope(int opIndex, double attack, double decay, double sustain, double release) {
@@ -187,8 +188,18 @@ double Engine::renderNextSample() {
         default:                    rawSample = polyFmManager_.renderNextMixedSample(); break;
     }
 
+    // Defensive Verification: Clamp raw inputs to isolate structural uninitialized math errors
+    if (std::isnan(rawSample) || std::isinf(rawSample)) {
+        rawSample = 0.0;
+    }
+
     double filteredSample = filter_.process(rawSample);
     
+    // Defensive Filter Verification: Isolate saturation arithmetic instabilities
+    if (std::isnan(filteredSample) || std::isinf(filteredSample)) {
+        filteredSample = 0.0;
+    }
+
     if (isRecording_) {
         recordingBuffer_.push_back(static_cast<float>(filteredSample));
     }

@@ -23,10 +23,12 @@ void StateVariableFilter::setSampleRate(double sampleRate) {
 }
 
 void StateVariableFilter::setParameters(double cutoffHz, double resonance) {
-    cutoff_ = std::clamp(cutoffHz, 20.0, sampleRate_ * 0.49);
-    resonance_ = std::clamp(resonance, 0.01, 10.0);
+    // Rigid safety ceiling clamp preventing Chamberlin state blowups completely
+    cutoff_ = std::clamp(cutoffHz, 20.0, sampleRate_ * 0.18); 
+    resonance_ = std::clamp(resonance, 0.1, 10.0);
     
     constexpr double pi = 3.14159265358979323846;
+    // Standard Chamberlin approximation tuning formula
     f_ = 2.0 * std::sin(pi * cutoff_ / sampleRate_);
     q_ = 1.0 / resonance_;
 }
@@ -58,11 +60,17 @@ double StateVariableFilter::shapeDistortion(double sample) const {
 }
 
 double StateVariableFilter::process(double input) {
-    // Continuous Chamberlin filter topology calculation pass
+    if (std::isnan(lowState_) || std::isinf(lowState_) || std::isnan(bandState_) || std::isinf(bandState_)) {
+        reset();
+    }
+
     double high = input - lowState_ - (q_ * bandState_);
     bandState_ += f_ * high;
     lowState_ += f_ * bandState_;
-    
+
+    lowState_ = std::clamp(lowState_, -4.0, 4.0);
+    bandState_ = std::clamp(bandState_, -4.0, 4.0);
+
     double filterOutput = 0.0;
     switch (mode_) {
         case FilterMode::HIGH_PASS: 

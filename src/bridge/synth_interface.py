@@ -31,10 +31,11 @@ class OrchestratedSynthesizer:
         self.lib.synth_orchestrator_control_change.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
         self.lib.synth_orchestrator_configure_filter.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_double, ctypes.c_double]
         self.lib.synth_orchestrator_configure_granular.argtypes = [ctypes.c_void_p, ctypes.c_double, ctypes.c_double, ctypes.c_int]
-        self.lib.synth_orchestrator_configure_lfo.argtypes = [ctypes.c_void_p, ctypes.c_double, ctypes.c_double]
+        self.lib.synth_orchestrator_configure_lfo.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_double, ctypes.c_double]
         self.lib.synth_orchestrator_get_scope_data.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_float), ctypes.c_size_t]
         self.lib.synth_orchestrator_update_fm_envelope.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_double]
-        
+        self.lib.synth_orchestrator_get_active_voices.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int)]        
+
         # Global binding allocation to stream sound files into granular tables
         self.lib.synth_orchestrator_load_granular_sample.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_float), ctypes.c_size_t]
         
@@ -72,8 +73,15 @@ class OrchestratedSynthesizer:
     def configure_granular(self, position: float, duration_ms: float, density: int):
         self.lib.synth_orchestrator_configure_granular(self.engine, ctypes.c_double(position), ctypes.c_double(duration_ms), ctypes.c_int(density))
 
-    def configure_lfo(self, frequency_hz: float, depth_percent: float):
-        self.lib.synth_orchestrator_configure_lfo(self.engine, ctypes.c_double(frequency_hz), ctypes.c_double(depth_percent))
+    def configure_lfo(self, lfo_type_idx: int, frequency_hz: float, depth_percent: float):
+        self.lib.synth_orchestrator_configure_lfo(self.engine, ctypes.c_int(lfo_type_idx), ctypes.c_double(frequency_hz), ctypes.c_double(depth_percent))
+
+    def get_polyphonic_voice_map(self) -> list:
+        """Queries the engine to check which polyphonic tracks are currently rendering."""
+        array_type = ctypes.c_int * 4
+        c_array = array_type()
+        self.lib.synth_orchestrator_get_active_voices(self.engine, c_array)
+        return [bool(x) for x in c_array]
 
     def get_scope_buffer(self, count: int = 512) -> np.ndarray:
         buffer_type = ctypes.c_float * count

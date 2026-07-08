@@ -17,6 +17,13 @@ public:
         GRANULAR
     };
 
+    enum class LFOWaveform {
+        SINE = 0,
+        TRIANGLE = 1,
+        SAW = 2,
+        SQUARE = 3
+    };
+
     Engine(double sampleRate = 48000.0);
     ~Engine();
 
@@ -26,7 +33,7 @@ public:
     void updateControlChange(int controlId, int value);
     void configureFilter(int mode, double cutoff, double resonance);
     void configureGranular(double position, double durationMs, int density);
-    void configureLfo(double frequencyHz, double depthPercent);
+    void configureLfo(int waveformIdx, double frequencyHz, double depthPercent);
     void updateFmEnvelope(int opIndex, double attack, double decay, double sustain, double release);
     
     void loadGranularSample(const float* dataBuffer, size_t sampleCount);
@@ -57,6 +64,7 @@ private:
     PolyphonyVoiceManager polyFmManager_;
     GranularEngine granularEngine_;
     StateVariableFilter filter_;
+    LFOWaveform lfoWaveform_ = LFOWaveform::SINE;
     
     std::vector<AnalogVoiceSlot> analogVoices_;
     bool isRecording_;

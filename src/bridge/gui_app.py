@@ -36,7 +36,6 @@ class MidiListenerThread(QThread):
         except Exception: pass
     def stop(self): self.running = False
 
-
 class WaveformOscilloscope(QWidget):
     def __init__(self, orchestrator: OrchestratedSynthesizer):
         super().__init__()
@@ -44,25 +43,106 @@ class WaveformOscilloscope(QWidget):
         self.setMinimumHeight(140)
         
     def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor(15, 15, 20))
-        pen = QPen(QColor(0, 255, 195), 2)
-        painter.setPen(pen)
-        data = self.orchestrator.get_scope_buffer(512)
-        w, h = self.width(), self.height()
-        mid_y = h // 2
-        if len(data) < 2: return
-        points = []
-        for i in range(len(data)):
-            x = int((i / len(data)) * w)
-            y = int(mid_y - (data[i] * mid_y * 0.9))
-            y = max(0, min(h - 1, y))
-            points.append((x, y))
-        for i in range(len(points) - 1):
-            x1, y1 = points[i]
-            x2, y2 = points[i+1]
-            painter.drawLine(x1, y1, x2, y2)
+        painter = QPainter()
+        if not painter.begin(self):
+            return
+            
+        try:
+            painter.fillRect(self.rect(), QColor(15, 15, 20))
+            pen = QPen(QColor(0, 255, 195), 2)
+            painter.setPen(pen)
+            
+            raw_data = self.orchestrator.get_scope_buffer(512)
+            if len(raw_data) < 2:
+                return
 
+            data = np.nan_to_num(raw_data, nan=0.0, posinf=1.0, neginf=-1.0)
+            # Enforce hard range clip constraints to protect the integer calculation step below
+            data = np.clip(data, -1.0, 1.0)
+            
+            w, h = self.width(), self.height()
+            mid_y = h // 2
+            points = []
+            
+            for i in range(len(data)):
+                x = int((i / len(data)) * w)
+                y = int(mid_y - (data[i] * mid_y * 0.9))
+                y = max(0, min(h - 1, y))
+                points.append((x, y))
+                
+            for i in range(len(points) - 1):
+                x1, y1 = points[i]
+                x2, y2 = points[i+1]
+                painter.drawLine(x1, y1, x2, y2)
+        finally:
+            painter.end()
+
+class AdsrVisualizer(QWidget):
+    """Draws a real-time vector line graph representing the active ADSR envelope shape."""
+    def __init__(self):
+        super().__init__()
+        self.setMinimumSize(160, 100)
+        self.params = {"A": 0.1, "D": 0.2, "S": 0.7, "R": 0.3}
+
+    def update_params(self, attack, decay, sustain, release):
+        self.params = {"A": attack, "D": decay, "S": sustain, "R": release}
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(20, 20, 25))
+        
+        w, h = self.width(), self.height()
+        pen = QPen(QColor(255, 170, 0), 2)
+        painter.setPen(pen)
+
+        # Scale parameters to fit layout space geometry limits
+        a_x = int(self.params["A"] * w * 0.25)
+        d_x = a_x + int(self.params["D"] * w * 0.25)
+        s_x = d_x + int(w * 0.25) # Sustain duration width block
+        r_x = s_x + int(self.params["R"] * w * 0.25)
+        r_x = min(w - 5, r_x)
+
+        s_y = int(h - (self.params["S"] * (h - 20)) - 10)
+
+        # Draw the complete vector contour line
+        points = [
+            (0, h - 10),       # Idle start
+            (a_x, 10),         # Peak Attack point
+            (d_x, s_y),        # Decay ending / Sustain starting point
+            (s_x, s_y),        # Sustain release point gateway
+            (r_x, h - 10)      # Complete Release termination point
+        ]
+
+        for i in range(len(points) - 1):
+            painter.drawLine(points[i][0], points[i][1], points[i+1][0], points[i+1][1])
+
+class VoiceIndicatorWidget(QWidget):
+    """Displays a grid of real-time status lights showing active synthesis voices."""
+    def __init__(self, count=4):
+        super().__init__()
+        self.voice_count = count
+        self.states = [False] * count
+        self.setMinimumHeight(40)
+
+    def set_voice_states(self, active_states_list):
+        self.states = active_states_list[:self.voice_count]
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        w = self.width()
+        spacing = w / self.voice_count
+        
+        for i in range(self.voice_count):
+            cx = int(i * spacing + spacing / 2)
+            cy = self.height() // 2
+            
+            # Active voices glow bright green, idle channels remain dark charcoal
+            color = QColor(0, 255, 100) if self.states[i] else QColor(40, 45, 50)
+            painter.setBrush(color)
+            painter.setPen(QPen(QColor(80, 85, 90), 1))
+            painter.drawEllipse(cx - 10, cy - 10, 20, 20)
 
 class SynthDashboard(QMainWindow):
 
@@ -90,6 +170,14 @@ class SynthDashboard(QMainWindow):
         self.ui_timer.timeout.connect(self.scope_view.update)
         self.ui_timer.start(16)
 
+        self.voice_timer = QTimer()
+        self.voice_timer.timeout.connect(self.refresh_voice_indicators)
+        self.voice_timer.start(50)
+
+    def refresh_voice_indicators(self):
+            states = self.orchestrator.get_polyphonic_voice_map()
+            self.voice_grid.set_voice_states(states)
+
     def init_ui(self):
         main_widget = QWidget()
         main_layout = QVBoxLayout()
@@ -108,6 +196,11 @@ class SynthDashboard(QMainWindow):
         self.algo_select.setCurrentIndex(5)
         self.algo_select.currentIndexChanged.connect(self.on_algorithm_changed)
         global_layout.addWidget(self.algo_select)
+
+        global_layout.addWidget(QLabel("Active Polyphonic Voices Grid:"))
+        self.voice_grid = VoiceIndicatorWidget(count=4)
+        global_layout.addWidget(self.voice_grid)
+
         global_group.setLayout(global_layout)
         top_strip.addWidget(global_group)
         
@@ -134,20 +227,27 @@ class SynthDashboard(QMainWindow):
         self.drive_slider.setValue(0)
         self.drive_slider.valueChanged.connect(self.on_distortion_drive_altered)
         mod_layout.addWidget(self.drive_slider, 1, 1)
+
+        mod_layout.addWidget(QLabel("LFO Source Shape:"), 1, 2)
+        self.lfo_wave_select = QComboBox()
+        self.lfo_wave_select.addItems(["Sine Wave", "Triangle Wave", "Sawtooth", "Square Pulse"])
+        self.lfo_wave_select.setCurrentIndex(0)
+        self.lfo_wave_select.currentIndexChanged.connect(self.on_lfo_parameters_altered)
+        mod_layout.addWidget(self.lfo_wave_select, 1, 3)
         
-        mod_layout.addWidget(QLabel("LFO Rate (Hz):"), 1, 2)
+        mod_layout.addWidget(QLabel("LFO Rate (Hz):"), 2, 0)
         self.lfo_rate = QSlider(Qt.Horizontal)
         self.lfo_rate.setRange(1, 100)
         self.lfo_rate.setValue(20)
         self.lfo_rate.valueChanged.connect(self.on_lfo_parameters_altered)
-        mod_layout.addWidget(self.lfo_rate, 1, 3)
+        mod_layout.addWidget(self.lfo_rate, 2, 1)
         
-        mod_layout.addWidget(QLabel("LFO Depth (%):"), 2, 0)
+        mod_layout.addWidget(QLabel("LFO Depth (%):"), 2, 2)
         self.lfo_depth = QSlider(Qt.Horizontal)
         self.lfo_depth.setRange(0, 100)
         self.lfo_depth.setValue(0)
         self.lfo_depth.valueChanged.connect(self.on_lfo_parameters_altered)
-        mod_layout.addWidget(self.lfo_depth, 2, 1)
+        mod_layout.addWidget(self.lfo_depth, 2, 3)
         
         modulation_group.setLayout(mod_layout)
         top_strip.addWidget(modulation_group)
@@ -295,6 +395,17 @@ class SynthDashboard(QMainWindow):
         
         self.log_message("System Online. Play notes using your computer keyboard (Z, X, C, V... / Q, W, E, R...)!")
 
+    def refresh_voice_indicators(self):
+        # Defensive check preventing runtime attribute lookup collisions
+        if not hasattr(self, 'voice_grid') or self.voice_grid is None:
+            return
+            
+        try:
+            states = self.orchestrator.get_polyphonic_voice_map()
+            self.voice_grid.set_voice_states(states)
+        except Exception:
+            pass
+
     def keyPressEvent(self, event):
         if event.isAutoRepeat(): return
         key = event.key()
@@ -349,9 +460,10 @@ class SynthDashboard(QMainWindow):
         self.orchestrator.configure_filter(selected_mode_idx, cutoff, 0.707)
 
     def on_lfo_parameters_altered(self):
+        wave_type_idx = self.lfo_wave_select.currentIndex()
         rate = self.lfo_rate.value() / 10.0
         depth = self.lfo_depth.value() / 100.0
-        self.orchestrator.configure_lfo(rate, depth)
+        self.orchestrator.configure_lfo(wave_type_idx, rate, depth)
 
     def on_freq_adjusted(self, op_index: int, value: int):
         # Cleaned routing fallback to avoid internal structural crashes
@@ -370,45 +482,70 @@ class SynthDashboard(QMainWindow):
         self.log_message(f"PSG Channel {channel_index + 1} Attenuation -> {attenuation} (Byte: {hex(latch_byte)})")
 
     def save_session_preset_toml(self):
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Patch TOML", "", "Preset Files (*.toml)")
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Complete Patch TOML", "config/presets", "Preset Files (*.toml)")
         if file_path:
-            preset_payload = {"synthesis": {"mode_index": self.mode_select.currentIndex(), "cutoff_hz": self.cutoff_slider.value()}}
-            with open(file_path, "wb") as f: f.write(tomli_w.dumps(preset_payload).encode("utf-8"))
-            self.log_message(f"Configuration saved successfully: {file_path}")
+            # Build an exhaustive map structure containing all active dashboard parameters
+            preset_payload = {
+                "preset_info": {
+                    "name": os.path.splitext(os.path.basename(file_path))[0],
+                    "engine_version": "0.2.5"
+                },
+                "synthesis": {
+                    "mode_index": self.mode_select.currentIndex(),
+                    "algorithm_index": self.algo_select.currentIndex()
+                },
+                "filter": {
+                    "mode_index": self.filter_mode_select.currentIndex(),
+                    "cutoff_hz": self.cutoff_slider.value(),
+                    "drive_percent": self.drive_slider.value()
+                },
+                "lfo": {
+                    "waveform_index": self.lfo_wave_select.currentIndex(),
+                    "rate_hz": self.lfo_rate.value() / 10.0,
+                    "depth_percent": self.lfo_depth.value() / 100.0
+                },
+                "operators": self.orchestrator.op_adsr
+            }
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(tomli_w.dumps(preset_payload).encode("utf-8"))
+                self.log_message(f"Full patch profile matrix saved: {file_path}")
+            except Exception as e:
+                self.log_message(f"Failed to generate patch serialization file: {str(e)}")
 
     def load_session_preset_toml(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Load Patch TOML", "config/presets", "Preset Files (*.toml)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Load Complete Patch TOML", "config/presets", "Preset Files (*.toml)")
         if file_path:
             try:
                 with open(file_path, "rb") as f: 
                     payload = tomllib.load(f)
                 
                 s = payload.get("synthesis", {})
+                flt = payload.get("filter", {})
                 lfo = payload.get("lfo", {})
-                psg = payload.get("psg_channels", {})
+                ops = payload.get("operators", {})
+
+                self.mode_select.setCurrentIndex(s.get("mode_index", 1))
+                self.algo_select.setCurrentIndex(s.get("algorithm_index", 5))
+
+                self.filter_mode_select.setCurrentIndex(flt.get("mode_index", 0))
+                self.cutoff_slider.setValue(flt.get("cutoff_hz", 2000))
+                self.drive_slider.setValue(flt.get("drive_percent", 0))
+
+                self.lfo_wave_select.setCurrentIndex(lfo.get("waveform_index", 0))
+                self.lfo_rate.setValue(int(lfo.get("rate_hz", 2.0) * 10))
+                self.lfo_depth.setValue(int(lfo.get("depth_percent", 0.0) * 100))
+
+                if ops:
+                    for op_str, stages in ops.items():
+                        op_idx = int(op_str)
+                        for stage_key, val in stages.items():
+                            self.orchestrator.update_operator_envelope(op_idx, stage_key, float(val))
                 
-                mode_idx = s.get("mode_index", 1)
-                cutoff_hz = s.get("cutoff_hz", 2000)
-                algo_idx = s.get("algorithm_index", 5)
-                
-                lfo_rate_val = int(lfo.get("rate_hz", 2.0) * 10)
-                lfo_depth_val = int(lfo.get("depth_percent", 0.0) * 100)
-                
-                self.mode_select.setCurrentIndex(mode_idx)
-                self.cutoff_slider.setValue(cutoff_hz)
-                self.algo_select.setCurrentIndex(algo_idx)
-                self.lfo_rate.setValue(lfo_rate_val)
-                self.lfo_depth.setValue(lfo_depth_val)
-                
-                if psg:
-                    psg_val = psg.get("square_1_attenuation", 15)
-                    self.orchestrator.control_change(80, psg_val)
-                
-                info = payload.get("preset_info", {})
-                patch_name = info.get("name", "Unknown Patch")
-                self.log_message(f"=== Successfully Loaded Patch Profile: [{patch_name}] ===")
+                patch_name = payload.get("preset_info", {}).get("name", "Unnamed Profile")
+                self.log_message(f"=== Loaded Unified Preset Snapshot: [{patch_name}] ===")
             except Exception as parse_error:
-                self.log_message(f"Failed to process custom preset snapshot: {str(parse_error)}")
+                self.log_message(f"Failed to load preset snapshot: {str(parse_error)}")
 
     def export_active_as_sonic_pi_script(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Export Sonic Pi Script", "", "Sonic Pi Ruby Files (*.rb)")

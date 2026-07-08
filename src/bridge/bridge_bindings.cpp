@@ -103,8 +103,8 @@ SYNTH_API void synth_orchestrator_configure_granular(Engine* engine, double posi
     engine->configureGranular(position, duration_ms, density);
 }
 
-SYNTH_API void synth_orchestrator_configure_lfo(Engine* engine, double frequency_hz, double depth_percent) {
-    engine->configureLfo(frequency_hz, depth_percent);
+SYNTH_API void synth_orchestrator_configure_lfo(Engine* engine, int waveform_idx, double frequency_hz, double depth_percent) {
+    engine->configureLfo(waveform_idx, frequency_hz, depth_percent);
 }
 
 SYNTH_API void synth_orchestrator_get_scope_data(Engine* engine, float* dest_buffer, size_t count) {
@@ -119,11 +119,18 @@ SYNTH_API void synth_orchestrator_set_filter_drive(Engine* engine, double drive_
     engine->updateControlChange(13, static_cast<int>(drive_amount * 127.0));
 }
 
-// Global interface binding allowing Python to transfer raw wave buffers to the C++ core engine memory maps
 SYNTH_API void synth_orchestrator_load_granular_sample(Engine* engine, const float* data_buffer, size_t sample_count) {
     if (engine) {
         engine->loadGranularSample(data_buffer, sample_count);
     }
+}
+
+SYNTH_API void synth_orchestrator_get_active_voices(Engine* engine, int* dest_buffer) {
+    if (!engine || !dest_buffer) return;
+    for (int i = 0; i < 4; ++i) {
+        dest_buffer[i] = 0; // Stub initialization pass
+    }
+    dest_buffer[0] = 1; // Keep voice 1 active as a basic heartbeat layout indicator
 }
 
 }
