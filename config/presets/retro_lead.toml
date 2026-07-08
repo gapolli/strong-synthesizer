@@ -1,0 +1,24 @@
+# Strong Synthesizer Preset Snapshot
+# High-Density Polyphonic Virtual Analog Lead Patches
+
+[preset_info]
+name = "Poly Saw Neon Lead"
+author = "Strong Synth Sound Design Team"
+description = "Bright multi-voice dente-de-serra oscillator lead with slow LFO modulation."
+
+[synthesis]
+mode_index = 0          # 0 = Virtual Analog Poly Engine (4 Voices)
+algorithm_index = 0     # Not applicable for Analog modes
+cutoff_hz = 4500        # Open, brilliant frequency headroom spectrum pass
+resonance_q = 1.2
+
+[lfo]
+rate_hz = 4.5           # Expressive 4.5Hz vibrato/wah modulation speed rate
+depth_percent = 0.35    # Dynamic pitch/filter shifting depth threshold
+
+[operators.op1]
+frequency_coarse = 440.0
+attack = 0.05
+decay = 0.30
+sustain = 0.8
+release = 0.4

@@ -1,0 +1,23 @@
+# Strong Synthesizer Preset Snapshot
+# Combined Master System / Mega Drive Secondary PSG Audio Matrix
+
+[preset_info]
+name = "Chiptune Retro Pulse"
+author = "Strong Synth Sound Design Team"
+description = "Pure square-wave pulse with embedded white noise burst triggers."
+
+[synthesis]
+mode_index = 1          # 1 = Hardware FM Chip Engine (PSG/FM active mix)
+algorithm_index = 5     # Algorithm 5 (Wide separate 4-carrier parallel mix layout)
+cutoff_hz = 8000        # Wide open raw 8-bit chip execution pass
+resonance_q = 0.707
+
+[lfo]
+rate_hz = 0.0
+depth_percent = 0.0
+
+[psg_channels]
+square_1_attenuation = 2  # Loud active lead voice level step tracking
+square_2_attenuation = 15 # Muted channel voice indicator tracking register
+square_3_attenuation = 15 # Muted channel voice indicator tracking register
+noise_4_attenuation = 8   # Mild crunch baseline white noise crackle tracking

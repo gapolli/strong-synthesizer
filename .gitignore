@@ -1,0 +1,28 @@
+# Python virtual environment and cache files
+.venv/
+__pycache__/
+*.pyc
+src/*.egg-info/
+strong_synthesizer.egg-info/
+
+# C++ Build outputs and cache tracks
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.a
+*.so
+*.dll
+*.dylib
+
+# Local dependency downloads
+src/bridge/miniaudio.h
+
+# OS generated files and local exports
+.DS_Store
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.rb

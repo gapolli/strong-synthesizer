@@ -1,0 +1,31 @@
+# Strong Synthesizer Preset Snapshot
+# Classic Mega Drive FM Punchy Synth Bass Timbres
+
+[preset_info]
+name = "Genesis Solid Bass"
+author = "Strong Synth Sound Design Team"
+description = "Accurate YM2612 FM metallic bass patch utilizing tight operator decay steps."
+
+[synthesis]
+mode_index = 1          # 1 = Hardware FM Chip Engine (YM2612)
+algorithm_index = 2      # Algorithm 2 (Standard FM linear carrier stack layout)
+cutoff_hz = 1500        # Slightly filtered upper high-frequency metallic edge
+resonance_q = 0.85
+
+[lfo]
+rate_hz = 0.0
+depth_percent = 0.0
+
+[operators.op1]
+frequency_coarse = 110.0
+attack = 0.01
+decay = 0.15
+sustain = 0.0
+release = 0.2
+
+[operators.op2]
+frequency_coarse = 220.0
+attack = 0.02
+decay = 0.10
+sustain = 0.4
+release = 0.2

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "strong-synthesizer"
+version = "0.1.0"
+description = "Modular Virtual Analog, FM, and Granular Sound Synthesis Engine"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.24.0",
+    "sounddevice>=0.4.6",
+    "soundfile>=0.12.0",
+    "typer>=0.9.0",
+    "rich>=13.7.0",
+    "mido>=1.3.0",
+    "tomli-w>=1.2.0",
+    "PySide6>=6.5.0",
+    "python-rtmidi>=1.5.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "scipy>=1.11.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
