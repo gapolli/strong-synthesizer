@@ -215,8 +215,8 @@ class SynthDashboard(QMainWindow):
         mod_layout.addWidget(self.filter_mode_select, 0, 1)
         
         mod_layout.addWidget(QLabel("Cutoff (Hz):"), 0, 2)
-        self.cutoff_slider = QSlider(Qt.Horizontal)
-        self.cutoff_slider.setRange(20, 12000)
+        self.cutoff_slider = QSlider(Qt.Orientation.Horizontal)
+        self.cutoff_slider.setRange(20, 5500)
         self.cutoff_slider.setValue(2000)
         self.cutoff_slider.valueChanged.connect(self.on_filter_parameters_altered)
         mod_layout.addWidget(self.cutoff_slider, 0, 3)
@@ -529,7 +529,9 @@ class SynthDashboard(QMainWindow):
                 self.algo_select.setCurrentIndex(s.get("algorithm_index", 5))
 
                 self.filter_mode_select.setCurrentIndex(flt.get("mode_index", 0))
-                self.cutoff_slider.setValue(flt.get("cutoff_hz", 2000))
+                raw_preset_cutoff = flt.get("cutoff_hz", 2000)
+                cutoff_hz = max(20, min(raw_preset_cutoff, 5500))
+                self.cutoff_slider.setValue(cutoff_hz)
                 self.drive_slider.setValue(flt.get("drive_percent", 0))
 
                 self.lfo_wave_select.setCurrentIndex(lfo.get("waveform_index", 0))

@@ -23,12 +23,10 @@ void StateVariableFilter::setSampleRate(double sampleRate) {
 }
 
 void StateVariableFilter::setParameters(double cutoffHz, double resonance) {
-    // Rigid safety ceiling clamp preventing Chamberlin state blowups completely
-    cutoff_ = std::clamp(cutoffHz, 20.0, sampleRate_ * 0.18); 
+    cutoff_ = std::clamp(cutoffHz, 20.0, 9000.0);
     resonance_ = std::clamp(resonance, 0.1, 10.0);
     
     constexpr double pi = 3.14159265358979323846;
-    // Standard Chamberlin approximation tuning formula
     f_ = 2.0 * std::sin(pi * cutoff_ / sampleRate_);
     q_ = 1.0 / resonance_;
 }
